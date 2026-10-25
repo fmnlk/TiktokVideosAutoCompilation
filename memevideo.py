@@ -156,7 +156,7 @@ def easeOut(progress):
 ### Layouts ###
 ###############
 
-def captionLayout(idea, scenes, timings, handle):
+def captionLayout(idea, scenes, timings, handle, speech=None):
     """
     Big centered text per scene (POV, memes, lists) with a pop animation
     """
@@ -194,7 +194,7 @@ def bubbleImage(text, mine):
     bubble.alpha_composite(textPart, (padX, padY))
     return bubble
 
-def chatLayout(idea, scenes, timings, handle):
+def chatLayout(idea, scenes, timings, handle, speech=None):
     """
     Text conversation where a new bubble appears with each scene
     """
@@ -244,7 +244,122 @@ def chatLayout(idea, scenes, timings, handle):
         return image.astype(np.uint8)
     return frame
 
-LAYOUTS = {'caption': captionLayout, 'chat': chatLayout}
+def blobBackground(palette, seed=0):
+    """
+    Return a function giving a slowly moving "lava lamp" background at time t
+    computed at low resolution then upscaled
+    """
+    scale = 8
+    w, h = WIDTH // scale, HEIGHT // scale
+    top, bottom = np.array(palette[0], dtype=np.float32), np.array(palette[1], dtype=np.float32)
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+    base = np.linspace(0, 1, h, dtype=np.float32)[:, None, None]
+    rng = np.random.default_rng(seed)
+    blobs = [(rng.uniform(0.1, 0.9), rng.uniform(0.1, 0.9), rng.uniform(0.15, 0.35), rng.uniform(0.15, 0.4),
+              rng.uniform(0, 6.3), rng.uniform(0.2, 0.9)) for _ in range(6)]
+
+    def frame(t):
+        field = np.zeros((h, w), dtype=np.float32)
+        for bx, by, amplitude, speed, phase, radius in blobs:
+            cx = (bx + amplitude * np.sin(t * speed + phase)) * w
+            cy = (by + amplitude * np.cos(t * speed * 0.8 + phase)) * h
+            field += np.exp(-((xs - cx) ** 2 + (ys - cy) ** 2) / (2 * (radius * w * 0.5) ** 2))
+        mix = np.clip(field, 0, 1)[..., None]
+        small = (top * (1 - base) + bottom * base) * (1 - mix * 0.6) + bottom[::-1] * mix * 0.6
+        #darkened so that the white captions stay readable
+        small = np.clip(small * 0.62, 0, 255).astype(np.uint8)
+        return np.asarray(Image.fromarray(small).resize((WIDTH, HEIGHT), Image.BILINEAR), dtype=np.float32)
+    return frame
+
+def wordTimings(text, start, speech):
+    """
+    Approximate the time each word is spoken, proportionally to its length
+    """
+    words = clean(text).split()
+    weights = np.array([len(word) + 2 for word in words], dtype=np.float32)
+    starts = start + speech * np.concatenate([[0], np.cumsum(weights)[:-1]]) / max(weights.sum(), 1)
+    return list(zip(words, starts))
+
+def chunkImage(words, highlight):
+    """
+    Render a group of words with the current one highlighted, wrapped on several lines if needed
+    """
+    font = ImageFont.truetype(FONT_BOLD, 112)
+    probe = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
+    space = probe.textlength(' ', font=font)
+    lines, line, lineWidth = [], [], 0
+    for i, word in enumerate(words):
+        width = probe.textlength(word, font=font)
+        if line and lineWidth + space + width > 940:
+            lines.append((line, lineWidth))
+            line, lineWidth = [], 0
+        lineWidth += (space if line else 0) + width
+        line.append((i, word, width))
+    lines.append((line, lineWidth))
+    lineHeight = 136
+    image = Image.new('RGBA', (WIDTH, lineHeight * len(lines) + 30), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    for row, (line, lineWidth) in enumerate(lines):
+        x = (WIDTH - lineWidth) / 2
+        for i, word, width in line:
+            draw.text((x, row * lineHeight + 10), word, font=font, fill=(255, 221, 0) if i == highlight else (255, 255, 255),
+                      stroke_width=9, stroke_fill=(0, 0, 0))
+            x += width + space
+    return toArray(image)
+
+def titleCard(title, author):
+    """
+    Story title card shown during the hook
+    """
+    titlePart = textImage(clean(title), FONT_BOLD, 62, 820, 600, fill=(20, 20, 20), align='left')
+    card = Image.new('RGBA', (900, titlePart.height + 200), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(card)
+    draw.rounded_rectangle((0, 0, card.width - 1, card.height - 1), radius=36, fill=(255, 255, 255))
+    draw.ellipse((40, 36, 120, 116), fill=(255, 112, 67))
+    initial = textImage(clean(author)[:1].upper() or 'S', FONT_BOLD, 44, 80)
+    card.alpha_composite(initial, (80 - initial.width // 2, 76 - initial.height // 2))
+    name = textImage(clean(author), FONT_BOLD, 38, 600, fill=(30, 30, 30))
+    card.alpha_composite(name, (140, 54))
+    card.alpha_composite(titlePart, (40, 150))
+    return toArray(card)
+
+def storyLayout(idea, scenes, timings, handle, speech):
+    """
+    Narrated story: title card during the hook, then word by word captions
+    """
+    bg = blobBackground(PALETTES[idea.get('palette', 0) % len(PALETTES)], idea.get('seed', len(idea.get('title', ''))))
+    card = titleCard(scenes[0]['text'], idea.get('author', 'Storytime'))
+    #groups of 3 words, each one rendered once per highlighted word
+    chunks = []
+    for i in range(1, len(scenes)):
+        words = wordTimings(scenes[i]['text'], timings[i][0], speech[i])
+        for k in range(0, len(words), 3):
+            group = words[k:k + 3]
+            chunks.append([(start, chunkImage([word for word, _ in group], j)) for j, (_, start) in enumerate(group)])
+    chunkStarts = [chunk[0][0] for chunk in chunks]
+    handleImage = toArray(textImage(handle, FONT_REGULAR, 40, 900, fill=(255, 255, 255, 200), stroke=2)) if handle else None
+    total = timings[-1][1]
+
+    def frame(t):
+        image = bg(t)
+        if t < timings[0][1] or not chunks:
+            appear = easeOut(t / 0.25)
+            rgb, alpha = card
+            paste(image, rgb, alpha, (WIDTH - rgb.shape[1]) // 2, (HEIGHT - rgb.shape[0]) // 2 - 120 + int((1 - appear) * 60), appear)
+        else:
+            index = max(0, int(np.searchsorted(chunkStarts, t, side='right')) - 1)
+            chunk = chunks[index]
+            word = max(j for j, (start, _) in enumerate(chunk) if start <= t or j == 0)
+            rgb, alpha = chunk[word][1]
+            bounce = int(-14 * (1 - easeOut((t - chunkStarts[index]) / 0.12)))
+            paste(image, rgb, alpha, 0, (HEIGHT - rgb.shape[0]) // 2 - 80 + bounce)
+        image[40:52, 60:60 + int((WIDTH - 120) * min(t / total, 1))] = 255
+        if handleImage:
+            paste(image, *handleImage, (WIDTH - handleImage[0].shape[1]) // 2, HEIGHT - 260)
+        return image.astype(np.uint8)
+    return frame
+
+LAYOUTS = {'caption': captionLayout, 'chat': chatLayout, 'story': storyLayout}
 
 ##############
 ### Render ###
@@ -257,18 +372,26 @@ def render(idea, outDir, handle=''):
     """
     Render one idea into outDir/<slug>.mp4 and write the caption to post in outDir/<slug>.txt
     """
-    scenes = idea['scenes']
+    layoutName = idea.get('layout', 'caption')
+    if layoutName == 'story':
+        #the hook is the title card, then one scene per sentence of the story
+        sentences = re.split(r'(?<=[.!?])\s+', idea['story'].strip())
+        scenes = [{'text': idea['hook'], 'pause': 0.5}] + [{'text': s, 'pause': 0.12, 'min_duration': 0.3} for s in sentences if clean(s)]
+    else:
+        scenes = idea['scenes']
     voices = idea.get('voices', {})
     defaultVoice = idea.get('voice', 'am_adam')
     speed = idea.get('speed', 1.1)
     #voice over of every scene, the scene lasts as long as its voice
     audio = []
     timings = []
+    speech = []
     t = 0.0
     for scene in scenes:
         voice = scene.get('voice') or voices.get(scene.get('speaker', ''), defaultVoice)
         samples = speak(scene.get('say', scene['text']), voice, speed)
-        duration = max(len(samples) / SAMPLE_RATE, scene.get('min_duration', 1.0)) + SCENE_PAUSE
+        speech.append(len(samples) / SAMPLE_RATE)
+        duration = max(len(samples) / SAMPLE_RATE, scene.get('min_duration', 1.0)) + scene.get('pause', SCENE_PAUSE)
         padded = np.zeros(int(duration * SAMPLE_RATE), dtype=np.float32)
         padded[:len(samples)] = samples
         audio.append(padded)
@@ -285,8 +408,7 @@ def render(idea, outDir, handle=''):
 
     videoPath = os.path.join(outDir, slug + '.mp4')
     try:
-        layout = LAYOUTS[idea.get('layout', 'caption')]
-        clip = VideoClip(layout(idea, scenes, timings, handle), duration=total)
+        clip = VideoClip(LAYOUTS[layoutName](idea, scenes, timings, handle, speech), duration=total)
         voiceOver = AudioFileClip(wavPath)
         clip = clip.with_audio(voiceOver)
         clip.write_videofile(videoPath, fps=FPS, codec='libx264', audio_codec='aac', preset='medium',

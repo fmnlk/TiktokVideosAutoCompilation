@@ -37,6 +37,7 @@ python videomaker.py make-video --period week --period-number 13 --year 2020 --r
 
 * `caption` - big centered text per scene (POV, memes, lists)
 * `chat` - a text conversation where a bubble appears with each line
+* `story` - a narrated 60-90 s story: title card for the hook, then word by word captions on an animated background (see `ideas/story-example.json`)
 
 ```
 python memevideo.py ideas/example.json --handle @myaccount   # videos in output/<today>/
