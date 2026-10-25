@@ -30,3 +30,16 @@ python videomaker.py make-video --period week --period-number 13 --year 2020 --r
 
 `make-video` downloads the top videos of the period in a folder, merges them in `<content>_<year>_<period>_<number>.mp4` and marks them as used in the DB (use `--skip-used` to ignore them next time).
 ...
+
+## Original meme videos
+
+`memevideo.py` renders original, ready-to-post videos (1080x1920, animated text + synthetic voice with [Kokoro](https://github.com/thewh1teagle/kokoro-onnx)) from a JSON file of ideas. Two layouts:
+
+* `caption` - big centered text per scene (POV, memes, lists)
+* `chat` - a text conversation where a bubble appears with each line
+
+```
+python memevideo.py ideas/example.json --handle @myaccount   # videos in output/<today>/
+```
+
+Each video comes with a `.txt` containing the caption, hashtags and a sound suggestion. The voice model (~350 MB) is downloaded into `models/` on first run. Add a trending sound at low volume in the TikTok app and enable the "AI-generated content" label since the voice is synthetic.
