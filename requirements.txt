@@ -1,0 +1,4 @@
+pandas>=2.0
+moviepy>=2.0
+yt-dlp[default,curl-cffi]
+TikTokApi>=7.0

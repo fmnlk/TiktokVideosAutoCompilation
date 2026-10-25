@@ -5,7 +5,28 @@ We select those videos according to a "ranking algo" (to be improve). You can se
 
 ## Built With
 
-* [Pyppeteer](https://miyakogi.github.io/pyppeteer/reference.html#) - Headless chrome/chromium automation library 
-* [MoviePy](https://zulko.github.io/moviepy/) - Used to merge and render videos
-* [wget.download](https://pypi.org/project/wget/) - Used to download videos 
+* [TikTokApi](https://github.com/davidteather/TikTok-Api) - Used to retrieve trending and music challenge videos (Playwright based)
+* [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Used to download videos and refresh their stats
+* [MoviePy](https://zulko.github.io/moviepy/) - Used to merge and render videos (needs ffmpeg)
+
+## Setup
+
+```
+pip install -r requirements.txt
+python -m playwright install chromium
+```
+
+TikTok blocks most bots. To reduce it, set the `MS_TOKEN` environment variable with the value of the `msToken` cookie of a tiktok.com session opened in your browser.
+
+## Usage
+
+```
+python videomaker.py import-trending --count 300      # add the current trending videos to dataVideo.txt
+python videomaker.py import-music --count 100         # add the videos of the musics of listChallenge.txt to dataVideoChallenge.txt
+python videomaker.py update-db [--prune]              # refresh the stats of the videos of the DB
+python videomaker.py filter                           # remove the videos that are not popular enough
+python videomaker.py make-video --period week --period-number 13 --year 2020 --ranking trending --number 50
+```
+
+`make-video` downloads the top videos of the period in a folder, merges them in `<content>_<year>_<period>_<number>.mp4` and marks them as used in the DB (use `--skip-used` to ignore them next time).
 ...
