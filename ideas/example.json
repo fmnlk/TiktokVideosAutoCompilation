@@ -1,0 +1,40 @@
+[
+  {
+    "title": "POV one more episode",
+    "layout": "caption",
+    "palette": 1,
+    "voice": "am_adam",
+    "scenes": [
+      {"text": "POV: you said \"just one more episode\" 😭"},
+      {"text": "Episode 1: \"ok this is the last one\""},
+      {"text": "Episode 4: \"I'll sleep after the cliffhanger\""},
+      {"text": "Episode 7: the birds are singing"},
+      {"text": "Your alarm: *rings in 12 minutes*", "say": "Your alarm rings in twelve minutes."},
+      {"text": "Me: \"I'm a functional adult\"", "say": "Me: I'm a functional adult."}
+    ],
+    "caption": "it was NOT just one more episode 💀",
+    "hashtags": ["pov", "relatable", "bingewatching", "fyp", "funny"],
+    "sound": "a calm, lo-fi trending sound at low volume",
+    "why": "Universal relatable situation, escalating structure, punchline at the end makes people rewatch."
+  },
+  {
+    "title": "Mom texts about the wifi",
+    "layout": "chat",
+    "contact": "Mom",
+    "me": "me",
+    "voices": {"me": "am_michael", "Mom": "af_heart"},
+    "scenes": [
+      {"speaker": "Mom", "text": "The wifi is broken again"},
+      {"speaker": "me", "text": "Did you restart the router?"},
+      {"speaker": "Mom", "text": "I restarted the TV"},
+      {"speaker": "me", "text": "That's not the router mom"},
+      {"speaker": "Mom", "text": "Well now the TV works AND the wifi is broken"},
+      {"speaker": "me", "text": "Is the router plugged in?"},
+      {"speaker": "Mom", "text": "Your father unplugged it to charge his phone 🙂"}
+    ],
+    "caption": "every family has one IT department and it's me 😭",
+    "hashtags": ["textingmom", "momtexts", "relatable", "funny", "fyp"],
+    "sound": "a funny trending audio at low volume",
+    "why": "Fake text conversations are a proven humor format, viewers tag their parents in the comments."
+  }
+]
